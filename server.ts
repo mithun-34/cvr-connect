@@ -2,7 +2,6 @@ import express from "express";
 import { clerkMiddleware, requireAuth, getAuth } from "@clerk/express";
 import pg from "pg";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import crypto from "crypto";
 
@@ -12,16 +11,18 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: "20mb" }));
-app.use(clerkMiddleware());
+app.use(clerkMiddleware({
+  clockSkewInMs: 60_000,
+}));
 
 // ─── Database ─────────────────────────────────────────────────────────────────
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  ssl: { rejectUnauthorized: false },
 });
 
-async function initDb() {
+export async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id         TEXT PRIMARY KEY,
@@ -97,7 +98,6 @@ function userId(req: express.Request): string {
 }
 
 // ─── Profile sync ─────────────────────────────────────────────────────────────
-// Called once after Clerk sign-up to create user row + initial profile
 
 app.post("/api/sync", requireAuth(), async (req, res) => {
   const id = userId(req);
@@ -241,7 +241,6 @@ app.post("/api/likes", requireAuth(), async (req, res) => {
     [uid(), sender, receiverId, itemId || null, itemType || null, message || null]
   );
 
-  // Check for mutual like → create match
   const { rows: mutual } = await pool.query(
     `SELECT id FROM likes WHERE sender_id = $1 AND receiver_id = $2`,
     [receiverId, sender]
@@ -279,7 +278,7 @@ app.get("/api/likes/received", requireAuth(), async (req, res) => {
 
 app.post("/api/likes/:id/resolve", requireAuth(), async (req, res) => {
   const receiver = userId(req);
-  const { action } = req.body; // "accept" | "reject"
+  const { action } = req.body;
 
   const { rows } = await pool.query(
     `SELECT * FROM likes WHERE id = $1 AND receiver_id = $2`,
@@ -368,7 +367,7 @@ app.post("/api/reports", requireAuth(), async (req, res) => {
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
-if (!ADMIN_TOKEN) console.warn("[warn] ADMIN_TOKEN is not set – admin routes are disabled");
+if (!ADMIN_TOKEN) console.warn("[warn] ADMIN_TOKEN not set – admin routes disabled");
 
 function isAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (!ADMIN_TOKEN || req.headers.authorization !== `Bearer ${ADMIN_TOKEN}`) {
@@ -392,7 +391,7 @@ app.get("/api/admin/users", isAdmin, async (_req, res) => {
 });
 
 app.patch("/api/admin/users/:id", isAdmin, async (req, res) => {
-  const { status } = req.body; // "approved" | "rejected" | "banned"
+  const { status } = req.body;
   await pool.query(`UPDATE users SET status = $2 WHERE id = $1`, [req.params.id, status]);
   if (status === "banned") {
     await pool.query(
@@ -403,21 +402,13 @@ app.patch("/api/admin/users/:id", isAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── Start ────────────────────────────────────────────────────────────────────
+// ─── Export ───────────────────────────────────────────────────────────────────
 
-async function start() {
-  await initDb();
+export default app;
 
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
-    app.use(vite.middlewares);
-  } else {
-    const dist = path.join(process.cwd(), "dist");
-    app.use(express.static(dist));
-    app.get("*", (_, res) => res.sendFile(path.join(dist, "index.html")));
-  }
-
-  app.listen(PORT, () => console.log(`cvr.connect on :${PORT}`));
+// Only start the HTTP server when running locally (tsx server.ts)
+if (!process.env.VERCEL) {
+  initDb().then(() => {
+    app.listen(PORT, () => console.log(`cvr.connect API on :${PORT}`));
+  });
 }
-
-start();
