@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-[#F9F8F6] text-zinc-900 antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+/* Safe area for mobile nav */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}

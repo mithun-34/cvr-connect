@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "dist/server.cjs", "use": "@vercel/node" },
+    { "src": "dist/**",         "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "dist/server.cjs" },
+    { "src": "/(.*)",     "dest": "dist/$1",         "continue": true },
+    { "src": "/(.*)",     "dest": "dist/server.cjs"  }
+  ]
+}
