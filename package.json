@@ -8,7 +8,8 @@
     "dev:client": "vite",
     "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev:server\" \"npm run dev:client\"",
     "build": "vite build",
-    "start": "node dist/server.cjs",
+    "vercel-build": "vite build",
+    "start": "tsx server.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
