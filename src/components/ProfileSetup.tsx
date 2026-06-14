@@ -4,21 +4,21 @@ import { DEPARTMENTS, PROMPT_QUESTIONS, INTERESTS, type Profile } from "../types
 import { UploadCloud, ArrowRight, Check, Heart } from "lucide-react";
 
 interface Props {
-  email: string;
+  email:      string;
+  clerkName:  string;   // from Clerk signup — may be empty
   onComplete: (profile: Profile) => void;
 }
 
 const STEPS = ["basics", "photo", "prompts"] as const;
 type Step = (typeof STEPS)[number];
 
-// Compress + resize image to stay well under Vercel's 4.5 MB payload limit
 async function compressImage(file: File, maxPx = 900, quality = 0.72): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
+      const ratio  = Math.min(maxPx / img.width, maxPx / img.height, 1);
       const canvas = document.createElement("canvas");
       canvas.width  = Math.round(img.width  * ratio);
       canvas.height = Math.round(img.height * ratio);
@@ -30,13 +30,8 @@ async function compressImage(file: File, maxPx = 900, quality = 0.72): Promise<s
   });
 }
 
-// ID card needs less resolution — just readable
-async function compressIdCard(file: File): Promise<string> {
-  return compressImage(file, 1000, 0.65);
-}
-
-export default function ProfileSetup({ email, onComplete }: Props) {
-  const api = useApi();
+export default function ProfileSetup({ email, clerkName, onComplete }: Props) {
+  const api     = useApi();
   const fileRef = useRef<HTMLInputElement>(null);
   const idRef   = useRef<HTMLInputElement>(null);
 
@@ -45,7 +40,8 @@ export default function ProfileSetup({ email, onComplete }: Props) {
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    name:           email.split("@")[0].replace(/[._]/g, " "),
+    // Pre-fill with Clerk name if available, otherwise blank so user types their own
+    name:           clerkName,
     age:            "20",
     gender:         "Female" as "Male" | "Female" | "Other",
     department:     DEPARTMENTS[0] as string,
@@ -66,8 +62,7 @@ export default function ProfileSetup({ email, onComplete }: Props) {
   async function handlePhoto(file: File) {
     if (!file.type.startsWith("image/")) return setError("Please upload an image file.");
     try {
-      const compressed = await compressImage(file);
-      set("photoBase64", compressed);
+      set("photoBase64", await compressImage(file));
     } catch {
       setError("Failed to process image. Try another file.");
     }
@@ -76,8 +71,7 @@ export default function ProfileSetup({ email, onComplete }: Props) {
   async function handleIdCard(file: File) {
     if (!file.type.startsWith("image/")) return setError("Please upload an image file.");
     try {
-      const compressed = await compressIdCard(file);
-      set("idCardBase64", compressed);
+      set("idCardBase64", await compressImage(file, 1000, 0.65));
     } catch {
       setError("Failed to process image. Try another file.");
     }
@@ -151,9 +145,14 @@ export default function ProfileSetup({ email, onComplete }: Props) {
           {/* ── Step 1: Basics ─────────────────────────────────────────────── */}
           {step === "basics" && (
             <>
-              <Field label="Name">
-                <input className={inp} value={form.name}
-                  onChange={(e) => set("name", e.target.value)} placeholder="Your name" />
+              <Field label="Your name">
+                <input
+                  className={inp}
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  placeholder="What should people call you?"
+                  autoFocus
+                />
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
@@ -162,7 +161,8 @@ export default function ProfileSetup({ email, onComplete }: Props) {
                     value={form.age} onChange={(e) => set("age", e.target.value)} />
                 </Field>
                 <Field label="Year">
-                  <select className={inp} value={form.year} onChange={(e) => set("year", e.target.value)}>
+                  <select className={inp} value={form.year}
+                    onChange={(e) => set("year", e.target.value)}>
                     {[1,2,3,4].map((y) => <option key={y}>{y}</option>)}
                   </select>
                 </Field>

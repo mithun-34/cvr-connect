@@ -11,16 +11,16 @@ export default function App() {
   const { isLoaded, isSignedIn, user } = useUser();
   const api = useApi();
 
-  // undefined = still loading, null = no profile yet
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [view, setView] = useState<"app" | "admin">("app");
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const email     = user?.primaryEmailAddress?.emailAddress ?? "";
+  // Use whatever name the user typed during Clerk signup, fall back to empty
+  const clerkName = user?.fullName ?? user?.firstName ?? "";
 
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) { setProfile(null); return; }
-
     api.me()
       .then(setProfile)
       .catch(() => setProfile(null));
@@ -80,7 +80,7 @@ export default function App() {
 
   // ── Profile setup (first login) ─────────────────────────────────────────────
   if (isSignedIn && profile === null) {
-    return <ProfileSetup email={email} onComplete={setProfile} />;
+    return <ProfileSetup email={email} clerkName={clerkName} onComplete={setProfile} />;
   }
 
   // ── Admin panel ─────────────────────────────────────────────────────────────
