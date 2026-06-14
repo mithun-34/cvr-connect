@@ -9,26 +9,24 @@ interface Props {
 
 export default function ChatView({ currentUserId }: Props) {
   const api = useApi();
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [active, setActive] = useState<Match | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [text, setText] = useState("");
+  const [matches,      setMatches]      = useState<Match[]>([]);
+  const [active,       setActive]       = useState<Match | null>(null);
+  const [messages,     setMessages]     = useState<Message[]>([]);
+  const [text,         setText]         = useState("");
   const [loadingMatches, setLoadingMatches] = useState(true);
-  const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [menu, setMenu] = useState(false);
+  const [loadingMsgs,  setLoadingMsgs]  = useState(false);
+  const [sending,      setSending]      = useState(false);
+  const [menu,         setMenu]         = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const pollRef   = useRef<ReturnType<typeof setInterval>>();
 
-  // Load match list
   useEffect(() => {
     api.matches()
       .then(({ matches }) => setMatches(matches))
       .finally(() => setLoadingMatches(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load messages when active match changes
   const loadMessages = useCallback(async (matchId: string) => {
     setLoadingMsgs(true);
     try {
@@ -62,17 +60,14 @@ export default function ChatView({ currentUserId }: Props) {
         });
         fileRef.current.value = "";
       }
-
-      const msg = await api.sendMessage(active.match_id, {
-        text: text.trim(),
-        imageUrl,
-      });
-
+      const msg = await api.sendMessage(active.match_id, { text: text.trim(), imageUrl });
       setMessages((prev) => [...prev, msg]);
       setText("");
       setMatches((prev) =>
         prev.map((m) =>
-          m.match_id === active.match_id ? { ...m, last_message: msg.text || "📷 Image" } : m
+          m.match_id === active.match_id
+            ? { ...m, last_message: msg.text || "📷 Image" }
+            : m
         )
       );
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
@@ -96,7 +91,9 @@ export default function ChatView({ currentUserId }: Props) {
           <h2 className="font-semibold text-lg text-zinc-900">Connections</h2>
           {!loadingMatches && (
             <p className="text-xs text-zinc-400 mt-0.5">
-              {matches.length === 0 ? "No connections yet" : `${matches.length} connection${matches.length !== 1 ? "s" : ""}`}
+              {matches.length === 0
+                ? "No connections yet"
+                : `${matches.length} connection${matches.length !== 1 ? "s" : ""}`}
             </p>
           )}
         </div>
@@ -123,11 +120,9 @@ export default function ChatView({ currentUserId }: Props) {
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-zinc-50 transition-colors text-left"
                 >
                   {match.photos?.[0] ? (
-                    <img
-                      src={match.photos[0]}
-                      className="w-13 h-13 w-[52px] h-[52px] rounded-2xl object-cover shrink-0"
-                      alt={match.name}
-                    />
+                    <img src={match.photos[0]}
+                      className="w-[52px] h-[52px] rounded-2xl object-cover shrink-0"
+                      alt={match.name} />
                   ) : (
                     <div className="w-[52px] h-[52px] rounded-2xl bg-zinc-100 flex items-center justify-center text-xl shrink-0">
                       👤
@@ -156,22 +151,31 @@ export default function ChatView({ currentUserId }: Props) {
   }
 
   // ─── Chat window ───────────────────────────────────────────────────────────
+  const partnerPhoto = active.photos?.[0];
+
   return (
     <div className="flex flex-col h-full">
-      {/* Chat header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100 shrink-0">
-        <button onClick={() => { setActive(null); setMessages([]); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors">
+
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100 shrink-0 bg-white">
+        <button
+          onClick={() => { setActive(null); setMessages([]); }}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors"
+        >
           <ArrowLeft className="w-4 h-4 text-zinc-600" />
         </button>
-        {active.photos?.[0] ? (
-          <img src={active.photos[0]} className="w-9 h-9 rounded-xl object-cover" />
+
+        {partnerPhoto ? (
+          <img src={partnerPhoto} className="w-9 h-9 rounded-xl object-cover shrink-0" />
         ) : (
-          <div className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center">👤</div>
+          <div className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0">👤</div>
         )}
+
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-zinc-900">{active.name}</p>
-          <p className="text-xs text-zinc-400">Age {active.age} · {active.department}</p>
+          <p className="font-semibold text-sm text-zinc-900 truncate">{active.name}</p>
+          <p className="text-xs text-zinc-400">{active.department}</p>
         </div>
+
         <div className="relative">
           <button
             onClick={() => setMenu((m) => !m)}
@@ -193,7 +197,10 @@ export default function ChatView({ currentUserId }: Props) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" onClick={() => setMenu(false)}>
+      <div
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-zinc-50"
+        onClick={() => setMenu(false)}
+      >
         {loadingMsgs ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
@@ -204,42 +211,106 @@ export default function ChatView({ currentUserId }: Props) {
             <p className="text-sm text-zinc-500">Say hello to {active.name}!</p>
           </div>
         ) : (
-          messages.map((msg) => {
-            const mine = msg.sender_id === currentUserId;
-            return (
-              <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[75%] ${mine ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
-                  {msg.image_url && (
-                    <img
-                      src={msg.image_url}
-                      className={`max-w-full rounded-2xl ${mine ? "rounded-br-sm" : "rounded-bl-sm"}`}
-                      style={{ maxHeight: 240 }}
-                    />
-                  )}
-                  {msg.text && (
-                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                      mine
-                        ? "bg-purple-600 text-white rounded-br-sm"
-                        : "bg-zinc-100 text-zinc-900 rounded-bl-sm"
-                    }`}>
-                      {msg.text}
+          <>
+            {messages.map((msg, i) => {
+              const mine = msg.sender_id === currentUserId;
+              const prevMsg = messages[i - 1];
+              const nextMsg = messages[i + 1];
+
+              // Group consecutive messages from same sender
+              const isFirstInGroup = !prevMsg || prevMsg.sender_id !== msg.sender_id;
+              const isLastInGroup  = !nextMsg || nextMsg.sender_id !== msg.sender_id;
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"} ${
+                    isFirstInGroup ? "mt-3" : "mt-0.5"
+                  }`}
+                >
+                  {/* Partner avatar — only on last bubble in a group */}
+                  {!mine && (
+                    <div className="w-7 h-7 shrink-0 mb-0.5">
+                      {isLastInGroup ? (
+                        partnerPhoto ? (
+                          <img src={partnerPhoto}
+                            className="w-7 h-7 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-zinc-200 flex items-center justify-center text-xs">
+                            👤
+                          </div>
+                        )
+                      ) : null}
                     </div>
                   )}
-                  <span className="text-[10px] text-zinc-400 px-1">
-                    {new Date(msg.created_at).toLocaleTimeString("en-IN", {
-                      hour: "2-digit", minute: "2-digit",
-                    })}
-                  </span>
+
+                  {/* Bubble */}
+                  <div className={`flex flex-col gap-0.5 max-w-[72%] ${mine ? "items-end" : "items-start"}`}>
+
+                    {/* Sender label on first bubble of group */}
+                    {isFirstInGroup && (
+                      <span className={`text-[10px] font-semibold px-1 ${
+                        mine ? "text-purple-400" : "text-zinc-400"
+                      }`}>
+                        {mine ? "You" : active.name}
+                      </span>
+                    )}
+
+                    {/* Image */}
+                    {msg.image_url && (
+                      <img
+                        src={msg.image_url}
+                        className={`max-w-full rounded-2xl ${
+                          mine
+                            ? "rounded-br-sm bg-purple-100"
+                            : "rounded-bl-sm bg-zinc-200"
+                        }`}
+                        style={{ maxHeight: 220 }}
+                      />
+                    )}
+
+                    {/* Text */}
+                    {msg.text && (
+                      <div className={`px-4 py-2.5 text-sm leading-relaxed break-words ${
+                        mine
+                          ? [
+                              "bg-purple-600 text-white",
+                              isFirstInGroup && isLastInGroup ? "rounded-2xl"
+                                : isFirstInGroup               ? "rounded-2xl rounded-br-sm"
+                                : isLastInGroup                ? "rounded-2xl rounded-tr-sm rounded-br-sm"
+                                :                               "rounded-l-2xl rounded-r-sm",
+                            ].join(" ")
+                          : [
+                              "bg-white text-zinc-900 border border-zinc-100 shadow-sm",
+                              isFirstInGroup && isLastInGroup ? "rounded-2xl"
+                                : isFirstInGroup               ? "rounded-2xl rounded-bl-sm"
+                                : isLastInGroup                ? "rounded-2xl rounded-tl-sm rounded-bl-sm"
+                                :                               "rounded-r-2xl rounded-l-sm",
+                            ].join(" ")
+                      }`}>
+                        {msg.text}
+                      </div>
+                    )}
+
+                    {/* Timestamp on last bubble of group */}
+                    {isLastInGroup && (
+                      <span className="text-[10px] text-zinc-400 px-1">
+                        {new Date(msg.created_at).toLocaleTimeString("en-IN", {
+                          hour: "2-digit", minute: "2-digit",
+                        })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+            <div ref={bottomRef} />
+          </>
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div className="shrink-0 border-t border-zinc-100 px-4 py-3 flex items-end gap-2">
+      <div className="shrink-0 border-t border-zinc-100 px-4 py-3 flex items-end gap-2 bg-white">
         <input
           ref={fileRef}
           type="file"
