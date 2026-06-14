@@ -106,8 +106,8 @@ app.post("/api/sync", requireAuth(), async (req, res) => {
     `INSERT INTO profiles (user_id,age,gender,department,year,photos,prompts,bio,interests)
      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)
      ON CONFLICT (user_id) DO NOTHING`,
-    [id, age||20, gender||"Other", department||"Computer Science (CSE)",
-     year||1, photos||[], JSON.stringify(prompts||[]), bio||"", interests||[]]
+    [id, age || 20, gender || "Other", department || "Computer Science (CSE)",
+      year || 1, photos || [], JSON.stringify(prompts || []), bio || "", interests || []]
   );
   const { rows } = await pool.query(
     `SELECT u.id,u.email,u.name,u.status,u.is_admin,
@@ -139,8 +139,8 @@ app.patch("/api/me", requireAuth(), async (req, res) => {
        photos=COALESCE($6,photos), prompts=COALESCE($7::jsonb,prompts),
        bio=COALESCE($8,bio), interests=COALESCE($9,interests), last_active=NOW()
      WHERE user_id=$1`,
-    [id, age??null, gender??null, department??null, year??null,
-     photos??null, prompts?JSON.stringify(prompts):null, bio??null, interests??null]
+    [id, age ?? null, gender ?? null, department ?? null, year ?? null,
+      photos ?? null, prompts ? JSON.stringify(prompts) : null, bio ?? null, interests ?? null]
   );
   if (name) await pool.query("UPDATE users SET name=$2 WHERE id=$1", [id, name]);
   res.json({ ok: true });
@@ -178,10 +178,10 @@ app.get("/api/feed", requireAuth(), async (req, res) => {
        AND ($6::int  IS NULL OR p.age<=$6)
      ORDER BY p.last_active DESC`,
     [id, opposite,
-     year?Number(year):null,
-     (dept&&dept!=="All")?String(dept):null,
-     minAge?Number(minAge):null,
-     maxAge?Number(maxAge):null]
+      year ? Number(year) : null,
+      (dept && dept !== "All") ? String(dept) : null,
+      minAge ? Number(minAge) : null,
+      maxAge ? Number(maxAge) : null]
   );
   res.json({ profiles: rows });
 });
@@ -200,7 +200,7 @@ app.post("/api/likes", requireAuth(), async (req, res) => {
   await pool.query(
     `INSERT INTO likes (id,sender_id,receiver_id,item_id,item_type,message)
      VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (sender_id,receiver_id) DO NOTHING`,
-    [uid(), sender, receiverId, itemId||null, itemType||null, message||null]
+    [uid(), sender, receiverId, itemId || null, itemType || null, message || null]
   );
   const { rows: mutual } = await pool.query(
     `SELECT id FROM likes WHERE sender_id=$1 AND receiver_id=$2`, [receiverId, sender]
@@ -263,7 +263,11 @@ app.get("/api/matches", requireAuth(), async (req, res) => {
      JOIN users u    ON u.id=CASE WHEN m.user1_id=$1 THEN m.user2_id ELSE m.user1_id END
      JOIN profiles p ON p.user_id=u.id
      WHERE m.user1_id=$1 OR m.user2_id=$1
-     ORDER BY COALESCE(last_message_at,m.matched_at) DESC`, [id]
+     ORDER BY COALESCE(
+       (SELECT created_at FROM messages WHERE match_id=m.id ORDER BY created_at DESC LIMIT 1),
+       m.matched_at
+     ) DESC`,
+    [id]
   );
   res.json({ matches: rows });
 });
@@ -289,7 +293,7 @@ app.post("/api/matches/:id/messages", requireAuth(), async (req, res) => {
   const { rows } = await pool.query(
     `INSERT INTO messages (id,match_id,sender_id,text,image_url)
      VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [uid(), req.params.id, sender, text||"", imageUrl||null]
+    [uid(), req.params.id, sender, text || "", imageUrl || null]
   );
   res.json(rows[0]);
 });
@@ -300,7 +304,7 @@ app.post("/api/reports", requireAuth(), async (req, res) => {
   const { reportedUserId, reason, details } = req.body;
   await pool.query(
     `INSERT INTO reports (id,reporter_id,reported_user_id,reason,details) VALUES ($1,$2,$3,$4,$5)`,
-    [uid(), userId(req), reportedUserId, reason, details||null]
+    [uid(), userId(req), reportedUserId, reason, details || null]
   );
   res.json({ ok: true });
 });
